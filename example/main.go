@@ -14,7 +14,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Lemo-yxk/promise"
+	"github.com/lemoyxk/promise"
 )
 
 func main() {
