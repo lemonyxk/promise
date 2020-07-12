@@ -11,8 +11,8 @@
 package promise
 
 type Resolve func(Result)
-type Resolves func(results []Result)
 type Reject func(Error)
+
 type Result interface{}
 type Error interface{}
 

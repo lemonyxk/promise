@@ -14,67 +14,65 @@ import (
 	"sync/atomic"
 )
 
+type Promise interface {
+	Then(func(result Result)) Catch
+}
+
+type Catch interface {
+	Catch(func(err Error))
+}
+
+type data struct {
+	res Result
+	err Error
+}
+
 type promise struct {
-	resolve Resolve
-	reject  Reject
-
-	resultCh chan Result
-	errCh    chan Error
-
-	thenLink []Resolve
-
-	then  bool
-	catch bool
+	ch chan data
+	fn func()
 }
 
-func (p *promise) Then(resolve Resolve) *promise {
-	if !p.then {
-		p.then = true
-		go func() {
-			if result := <-p.resultCh; result != nil {
-				resolve(result)
-				for i := 0; i < len(p.thenLink); i++ {
-					p.thenLink[i](nil)
-				}
+func (p promise) Then(then func(Result)) Catch {
+	p.fn()
+	r := <-p.ch
+	var c = catch{err: r.err}
+	if r.err != nil {
+		return c
+	}
+	then(r.res)
+	return c
+}
+
+type catch struct {
+	err Error
+}
+
+func (c catch) Catch(catch func(Error)) {
+	if c.err != nil {
+		catch(c.err)
+	}
+}
+
+func New(state State) Promise {
+
+	var p promise
+	p.ch = make(chan data, 1)
+
+	p.fn = func() {
+		var counter int32 = 0
+		// just one can be exec
+		var resolve = func(result Result) {
+			if atomic.AddInt32(&counter, 1) == 1 {
+				p.ch <- data{res: result, err: nil}
 			}
-		}()
-	} else {
-		p.thenLink = append(p.thenLink, resolve)
-	}
-	return p
-}
-
-func (p *promise) Catch(reject Reject) {
-	if !p.catch {
-		p.catch = true
-		go func() {
-			if err := <-p.errCh; err != nil {
-				reject(err)
+		}
+		var reject = func(err Error) {
+			if atomic.AddInt32(&counter, 1) == 1 {
+				p.ch <- data{res: nil, err: err}
 			}
-		}()
-	}
-}
-
-func New(fn State) *promise {
-	var p = &promise{}
-
-	p.resultCh = make(chan Result, 1)
-	p.errCh = make(chan Error, 1)
-
-	var counter int32 = 0
-
-	p.resolve = func(result Result) {
-		if atomic.AddInt32(&counter, 1) == 1 {
-			p.resultCh <- result
-			p.errCh <- nil
 		}
+		state(resolve, reject)
 	}
-	p.reject = func(err Error) {
-		if atomic.AddInt32(&counter, 1) == 1 {
-			p.errCh <- err
-			p.resultCh <- nil
-		}
-	}
-	fn(p.resolve, p.reject)
+
 	return p
 }
