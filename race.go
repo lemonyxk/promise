@@ -14,14 +14,15 @@ import (
 	"sync/atomic"
 )
 
-type race struct {
-	promise
+type race[T any, P any] struct {
+	promise[T, P]
 }
 
-func Race(promises ...Promise) Promise {
+func Race[T any, P any](promises ...Promise[T, P]) Promise[T, P] {
 
-	var p race
-	p.ch = make(chan data, 1)
+	var p race[T, P]
+	p.ch = make(chan T, 1)
+	p.eh = make(chan P, 1)
 
 	p.fn = func() {
 		var sucCounter int32 = 0
@@ -30,13 +31,13 @@ func Race(promises ...Promise) Promise {
 		for i := 0; i < len(promises); i++ {
 			var index = i
 			go func() {
-				promises[index].Then(func(result Result) {
+				promises[index].Then(func(result T) {
 					if atomic.AddInt32(&sucCounter, 1) == 1 {
-						p.ch <- data{res: result, err: nil}
+						p.ch <- result
 					}
-				}).Catch(func(err Error) {
+				}).Catch(func(err P) {
 					if atomic.AddInt32(&errCounter, 1) == 1 {
-						p.ch <- data{res: nil, err: err}
+						p.eh <- err
 					}
 				})
 			}()

@@ -14,36 +14,37 @@ import (
 	"sync/atomic"
 )
 
-type fall struct {
-	promise
+type fall[T any, P any] struct {
+	promises[T, P]
 }
 
-func Fall(promises ...Promise) Promise {
+func Fall[T any, P any](promises ...Promise[T, P]) Promises[T, P] {
 
-	var p fall
-	p.ch = make(chan data, 1)
+	var p fall[T, P]
+	p.ch = make(chan []T, 1)
+	p.eh = make(chan P, 1)
 
 	p.fn = func() {
 		var sucCounter int32 = 0
 		var errCounter int32 = 0
-		var results = make([]Result, len(promises))
+		var results = make([]T, len(promises))
 
 		var index = 0
 
 		var fn func(int)
 
 		fn = func(index int) {
-			promises[index].Then(func(result Result) {
+			promises[index].Then(func(result T) {
 				results[index] = result
 				if atomic.AddInt32(&sucCounter, 1) == int32(len(promises)) {
-					p.ch <- data{res: results, err: nil}
+					p.ch <- results
 				} else {
 					index++
 					fn(index)
 				}
-			}).Catch(func(err Error) {
+			}).Catch(func(err P) {
 				if atomic.AddInt32(&errCounter, 1) == 1 {
-					p.ch <- data{res: nil, err: err}
+					p.eh <- err
 				}
 			})
 		}

@@ -14,31 +14,32 @@ import (
 	"sync/atomic"
 )
 
-type all struct {
-	promise
+type all[T any, P any] struct {
+	promises[T, P]
 }
 
-func All(promises ...Promise) Promise {
+func All[T any, P any](promises ...Promise[T, P]) Promises[T, P] {
 
-	var p all
-	p.ch = make(chan data, 1)
+	var p all[T, P]
+	p.ch = make(chan []T, 1)
+	p.eh = make(chan P, 1)
 
 	p.fn = func() {
 		var sucCounter int32 = 0
 		var errCounter int32 = 0
-		var results = make([]Result, len(promises))
+		var results = make([]T, len(promises))
 
 		for i := 0; i < len(promises); i++ {
 			var index = i
 			go func() {
-				promises[index].Then(func(result Result) {
+				promises[index].Then(func(result T) {
 					results[index] = result
 					if atomic.AddInt32(&sucCounter, 1) == int32(len(promises)) {
-						p.ch <- data{res: results, err: nil}
+						p.ch <- results
 					}
-				}).Catch(func(err Error) {
+				}).Catch(func(err P) {
 					if atomic.AddInt32(&errCounter, 1) == 1 {
-						p.ch <- data{res: nil, err: err}
+						p.eh <- err
 					}
 				})
 			}()

@@ -14,49 +14,49 @@ import (
 	"log"
 	"time"
 
-	"github.com/lemoyxk/promise"
+	"github.com/lemonyxk/promise"
 )
 
 func main() {
 
 	log.Println("start")
 
-	var r1 = promise.New(func(resolve promise.Resolve, reject promise.Reject) {
+	var r1 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
 		go func() {
-			time.Sleep(time.Millisecond * 3000)
+			time.Sleep(time.Millisecond * 300)
 			resolve(1)
 		}()
 	})
 
-	var r2 = promise.New(func(resolve promise.Resolve, reject promise.Reject) {
+	var r2 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
 		go func() {
-			time.Sleep(time.Millisecond * 2000)
+			time.Sleep(time.Millisecond * 200)
 			resolve(2)
 		}()
 	})
 
-	var r3 = promise.New(func(resolve promise.Resolve, reject promise.Reject) {
+	var r3 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
 		go func() {
-			time.Sleep(time.Millisecond * 1000)
+			time.Sleep(time.Millisecond * 100)
 			resolve(3)
 		}()
 	})
 
-	promise.Race(r1, r2, r3).Then(func(result promise.Result) {
+	promise.Race(r1, r2, r3).Then(func(result int) {
 		log.Println(result)
-	}).Catch(func(err promise.Error) {
+	}).Catch(func(err error) {
 		log.Println(err)
 	})
 
-	promise.All(r1, r2, r3).Then(func(result promise.Result) {
+	promise.All(r1, r2, r3).Then(func(result []int) {
 		log.Println(result)
-	}).Catch(func(err promise.Error) {
+	}).Catch(func(err error) {
 		log.Println(err)
 	})
 
-	promise.Fall(r1, r2, r3).Then(func(result promise.Result) {
+	promise.Fall(r1, r2, r3).Then(func(result []int) {
 		log.Println(result)
-	}).Catch(func(err promise.Error) {
+	}).Catch(func(err error) {
 		log.Println(err)
 	})
 

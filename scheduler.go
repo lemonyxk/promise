@@ -12,12 +12,12 @@ package promise
 
 import "sync"
 
-type scheduler struct {
-	queue []*promise
+type scheduler[T any, P any] struct {
+	queue []*promise[T, P]
 	mux   sync.Mutex
 }
 
-func (s *scheduler) add(p *promise) {
+func (s *scheduler[T, P]) add(p *promise[T, P]) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.queue = append(s.queue, p)

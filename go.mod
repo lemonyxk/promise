@@ -1,3 +1,3 @@
-module github.com/lemoyxk/promise
+module github.com/lemonyxk/promise
 
-go 1.15
+go 1.18
