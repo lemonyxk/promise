@@ -10,10 +10,10 @@
 
 package promise
 
-type Resolve[T any] func(T)
-type Reject[T any] func(T)
+// type Resolve[T any] func(T)
+// type Reject[T any] func(T)
 
 // type Result[T any] any
 // type Error[T any] any
 
-type State[T any, P any] func(resolve Resolve[T], reject Reject[P])
+type State[T any, P any] func(resolve func(T), reject func(P))

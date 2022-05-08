@@ -13,21 +13,21 @@ func main() {
 
 	log.Println("start")
 
-	var r1 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
+	var r1 = promise.New(func(resolve func(int), reject func(error)) {
 		go func() {
 			time.Sleep(time.Millisecond * 300)
 			resolve(1)
 		}()
 	})
 
-	var r2 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
+	var r2 = promise.New(func(resolve func(int), reject func(error)) {
 		go func() {
 			time.Sleep(time.Millisecond * 200)
 			resolve(2)
 		}()
 	})
 
-	var r3 = promise.New(func(resolve promise.Resolve[int], reject promise.Reject[error]) {
+	var r3 = promise.New(func(resolve func(int), reject func(error)) {
 		go func() {
 			time.Sleep(time.Millisecond * 100)
 			resolve(3)
@@ -63,8 +63,7 @@ func main() {
 	// signalChan := make(chan os.Signal, 1)
 	// signal.Notify(signalChan, os.Kill)
 	// <-signalChan
+
 }
-
-
 
 ```
