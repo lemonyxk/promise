@@ -15,42 +15,45 @@ import (
 )
 
 type fall[T any, P any] struct {
-	promises[T, P]
+	results[T, P]
 }
 
-func Fall[T any, P any](promises ...Promise[T, P]) Promises[T, P] {
+func Fall[T any, P any](promises ...Promise[T, P]) Results[T, P] {
 
-	var p fall[T, P]
-	p.ch = make(chan []T, 1)
-	p.eh = make(chan P, 1)
+	var p = new(fall[T, P])
+	p.index = -1
+	p.chList = append(p.chList, make(chan []T, 1))
+	p.ehList = append(p.ehList, make(chan P, 1))
 
-	p.fn = func() {
+	p.fn = func(index int) {
 		var sucCounter int32 = 0
 		var errCounter int32 = 0
 		var results = make([]T, len(promises))
 
-		var index = 0
+		var pi = 0
 
 		var fn func(int)
 
-		fn = func(index int) {
-			promises[index].Then(func(result T) {
-				results[index] = result
+		fn = func(pi int) {
+			promises[pi].Then(func(result T) {
+				results[pi] = result
 				if atomic.AddInt32(&sucCounter, 1) == int32(len(promises)) {
-					p.ch <- results
+					p.chList[index] <- results
 				} else {
-					index++
-					fn(index)
+					pi++
+					fn(pi)
 				}
 			}).Catch(func(err P) {
 				if atomic.AddInt32(&errCounter, 1) == 1 {
-					p.eh <- err
+					p.ehList[index] <- err
 				}
 			})
 		}
 
-		fn(index)
+		fn(pi)
 	}
+
+	p.fn(0)
 
 	return p
 }

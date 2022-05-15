@@ -62,6 +62,8 @@ func main() {
 
 	log.Println("end")
 
+	// time.Sleep(time.Second * 2)
+
 	// 2020/07/13 02:00:15 start
 	// 2020/07/13 02:00:16 3
 	// 2020/07/13 02:00:19 [1 2 3]
