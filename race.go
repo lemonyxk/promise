@@ -15,17 +15,17 @@ import (
 )
 
 type race[T any, P any] struct {
-	result[T, P]
+	promise[T, P]
 }
 
-func Race[T any, P any](promises ...Promise[T, P]) Result[T, P] {
+func Race[T any, P any](promises ...Promise[T, P]) Promise[T, P] {
 
 	var p = new(race[T, P])
-	p.index = -1
-	p.chList = append(p.chList, make(chan T, 1))
-	p.ehList = append(p.ehList, make(chan P, 1))
+	p.ch = make(chan T, 1)
+	p.eh = make(chan P, 1)
+	p.done = make(chan bool, 1)
 
-	p.fn = func(index int) {
+	p.fn = func() {
 		var sucCounter int32 = 0
 		var errCounter int32 = 0
 
@@ -34,18 +34,20 @@ func Race[T any, P any](promises ...Promise[T, P]) Result[T, P] {
 			go func() {
 				promises[pi].Then(func(result T) {
 					if atomic.AddInt32(&sucCounter, 1) == 1 {
-						p.chList[index] <- result
+						p.ch <- result
+						p.done <- true
 					}
 				}).Catch(func(err P) {
 					if atomic.AddInt32(&errCounter, 1) == 1 {
-						p.ehList[index] <- err
+						p.eh <- err
+						p.done <- false
 					}
 				})
 			}()
 		}
 	}
 
-	p.fn(0)
+	p.fn()
 
 	return p
 }

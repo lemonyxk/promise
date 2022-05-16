@@ -11,123 +11,83 @@
 package promise
 
 import (
-	"sync"
 	"sync/atomic"
 )
 
 type Promise[T any, P any] interface {
-	Then(func(result T)) Catch[P]
+	Then(func(T)) Promise[T, P]
+	Catch(func(P)) Promise[T, P]
+	Finally(func())
 }
 
 type promise[T any, P any] struct {
-	fn func(index int)
+	fn func()
 
-	index    int32
-	chList   []chan T
-	ehList   []chan P
-	thenList []chan T
+	ch chan T
+	eh chan P
 
-	result    T
-	err       P
-	hasResult bool
-	hasErr    bool
-
-	mux sync.Mutex
+	done chan bool
 }
 
-func (p *promise[T, P]) Then(then func(T)) Catch[P] {
-
-	var index = atomic.AddInt32(&p.index, 1)
-	// not first
-	if index > 0 {
-		p.mux.Lock()
-
-		if p.hasResult {
-			then(p.result)
-			p.mux.Unlock()
-			var c = &catch[P]{err: empty[P](), run: false}
-			return c
-		}
-
-		if p.hasErr {
-			p.mux.Unlock()
-			var c = &catch[P]{err: p.err, run: true}
-			return c
-		}
-
-		var t = make(chan T, 1)
-
-		p.thenList = append(p.thenList, t)
-		p.mux.Unlock()
-
-		var res = <-t
+func (p *promise[T, P]) Then(then func(T)) Promise[T, P] {
+	var done = <-p.done
+	if done {
+		var res = <-p.ch
 		then(res)
-
-		var c = &catch[P]{err: empty[P](), run: false}
-		return c
-	}
-
-	select {
-	case res := <-p.chList[index]:
-		p.mux.Lock()
-		then(res)
-		p.result = res
-		p.hasResult = true
-		for i := 0; i < len(p.thenList); i++ {
-			p.thenList[i] <- res
-		}
-		p.mux.Unlock()
-		var c = &catch[P]{err: empty[P](), run: false}
-		return c
-	case err := <-p.ehList[index]:
-		p.mux.Lock()
-		p.err = err
-		p.hasErr = true
-		p.mux.Unlock()
-		var c = &catch[P]{err: err, run: true}
-		return c
+		p.ch <- res
+		p.done <- done
+		return p
+	} else {
+		p.done <- done
+		return p
 	}
 }
 
-type Catch[T any] interface {
-	Catch(func(err T))
-}
+func (p *promise[T, P]) Catch(catch func(P)) Promise[T, P] {
 
-type catch[T any] struct {
-	err T
-	run bool
-}
-
-func (c *catch[T]) Catch(catch func(T)) {
-	if c.run {
-		catch(c.err)
+	var done = <-p.done
+	if done {
+		p.done <- done
+		return p
+	} else {
+		var err = <-p.eh
+		catch(err)
+		p.eh <- err
+		p.done <- done
+		return p
 	}
+}
+
+func (p *promise[T, P]) Finally(finally func()) {
+	finally()
 }
 
 func New[T any, P any](state func(resolve func(T), reject func(P))) Promise[T, P] {
 
 	var p = new(promise[T, P])
-	p.index = -1
-	p.chList = append(p.chList, make(chan T, 1))
-	p.ehList = append(p.ehList, make(chan P, 1))
+	p.ch = make(chan T, 1)
+	p.eh = make(chan P, 1)
+	p.done = make(chan bool, 1)
 
-	p.fn = func(index int) {
+	p.fn = func() {
 		var counter int32 = 0
 		// just one can be exec
 		var resolve = func(result T) {
 			if atomic.AddInt32(&counter, 1) == 1 {
-				p.chList[index] <- result
+				p.ch <- result
+				p.done <- true
 			}
 		}
 		var reject = func(err P) {
 			if atomic.AddInt32(&counter, 1) == 1 {
-				p.ehList[index] <- err
+				p.eh <- err
+				p.done <- false
 			}
 		}
 		state(resolve, reject)
 	}
 
-	p.fn(0)
+	p.fn()
 
 	return p
 }

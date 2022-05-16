@@ -15,17 +15,17 @@ import (
 )
 
 type all[T any, P any] struct {
-	results[T, P]
+	promises[T, P]
 }
 
-func All[T any, P any](promises ...Promise[T, P]) Results[T, P] {
+func All[T any, P any](promises ...Promise[T, P]) Promises[T, P] {
 
 	var p = new(all[T, P])
-	p.index = -1
-	p.chList = append(p.chList, make(chan []T, 1))
-	p.ehList = append(p.ehList, make(chan P, 1))
+	p.ch = make(chan []T, 1)
+	p.eh = make(chan P, 1)
+	p.done = make(chan bool, 1)
 
-	p.fn = func(index int) {
+	p.fn = func() {
 		var sucCounter int32 = 0
 		var errCounter int32 = 0
 		var results = make([]T, len(promises))
@@ -36,18 +36,20 @@ func All[T any, P any](promises ...Promise[T, P]) Results[T, P] {
 				promises[pi].Then(func(result T) {
 					results[pi] = result
 					if atomic.AddInt32(&sucCounter, 1) == int32(len(promises)) {
-						p.chList[index] <- results
+						p.ch <- results
+						p.done <- true
 					}
 				}).Catch(func(err P) {
 					if atomic.AddInt32(&errCounter, 1) == 1 {
-						p.ehList[index] <- err
+						p.eh <- err
+						p.done <- false
 					}
 				})
 			}()
 		}
 	}
 
-	p.fn(0)
+	p.fn()
 
 	return p
 }
