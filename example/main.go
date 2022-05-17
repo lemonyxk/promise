@@ -11,6 +11,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -61,13 +62,13 @@ func main() {
 		log.Println(err)
 	})
 
-	promise.New(func(resolve func(string), reject func(string)) {
+	promise.New(func(resolve func(string), reject func(error)) {
 		go func() {
 			time.Sleep(time.Millisecond * 100)
-			reject("test")
+			reject(errors.New("error"))
 			resolve("test1") // not execute
 		}()
-	}).Catch(func(err string) {
+	}).Catch(func(err error) {
 		log.Println("reject:", err)
 	}).Then(func(result string) {
 		log.Println("resolve:", result)
@@ -76,6 +77,22 @@ func main() {
 	})
 
 	log.Println("end")
+
+	promise.Resolve("test").Then(func(result string) {
+		log.Println("resolve:", result)
+	}).Catch(func(err error) {
+		log.Println("reject:", err)
+	}).Finally(func() {
+		log.Println("finally")
+	})
+
+	promise.Reject[string](errors.New("error")).Then(func(result string) {
+		log.Println("resolve:", result)
+	}).Catch(func(err error) {
+		log.Println("reject:", err)
+	}).Finally(func() {
+		log.Println("finally")
+	})
 
 	// 2022/05/16 18:45:24 start
 	// 2022/05/16 18:46:00 r1 start
